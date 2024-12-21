@@ -1,0 +1,6 @@
+1. Asegurarse que el archivo de entrada este en formato .dzn
+2. El archivo de entrada debe de ser con variables, Ejemplo: total_posiciones_fijas, posiciones_fijas, tam_cuadricula, matriz_poblacional, 
+matriz_economica, cantidad_ubicaciones
+3. Runear el archivo main.py
+4. escoger el archivo de entrada y el solver
+5. dar click en ejecutar 

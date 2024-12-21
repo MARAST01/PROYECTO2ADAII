@@ -1,138 +1,83 @@
+# Proyecto ADA II
+#  Desarrolladores: 
+# Juan Jose Hernandez 2259500
+# Juan Jose Gallego 2259433
+# Marlon Astudillo 2259462
+# Tina Torres 2259729
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from minizinc import Instance, Model, Solver
-import os
+import subprocess
 
-# Función para cargar archivo de entrada
-def cargar_archivo():
-    archivo = filedialog.askopenfilename(
-        title="Seleccionar archivo de entrada",
-        filetypes=[("Archivos de texto", "*.txt"), ("Todos los archivos", "*.*")]
-    )
+def seleccionar_archivo():
+    """Permite al usuario seleccionar un archivo de entrada."""
+    archivo = filedialog.askopenfilename(title="Seleccionar archivo de entrada", filetypes=[("Archivos MiniZinc", "*.dzn"), ("Todos los archivos", "*.*")])
     if archivo:
-        entrada_label.config(text=f"Archivo seleccionado: {os.path.basename(archivo)}")
-        global archivo_entrada
-        archivo_entrada = archivo
+        archivo_entrada.set(archivo)
 
-# Modelo en MiniZinc embebido como cadena
-modelo_mzn = """
-include "globals.mzn";
+def ejecutar_modelo():
+    """Ejecuta el modelo de MiniZinc usando el archivo seleccionado."""
+    archivo = archivo_entrada.get()
+    if not archivo:
+        messagebox.showerror("Error", "Debe seleccionar un archivo de entrada.")
+        return
 
-int: n;  % Tamaño de la matriz
-int: num_ubicaciones_existentes;  % Número de ubicaciones existentes
-set of int: R = 1..n;  % Rango de las filas y columnas
-set of int: E = 1..num_ubicaciones_existentes;  % Rango de ubicaciones existentes
+    solver = solver_seleccionado.get()
+    if not solver:
+        messagebox.showerror("Error", "Debe seleccionar un solver.")
+        return
 
-array[E, 2] of int: ubicaciones_existentes;  % Coordenadas de las ubicaciones existentes
-array[R, R] of int: matriz_poblacion;  % Matriz del segmento de población
-array[R, R] of int: matriz_entorno;  % Matriz del entorno empresarial
-int: nuevas_ubicaciones;  % Número de ubicaciones a agregar
-
-array[1..nuevas_ubicaciones, 2] of var R: ubicaciones_nuevas;  % Coordenadas nuevas
-
-% Restricciones
-constraint forall(i in 1..nuevas_ubicaciones)(
-    forall(j in E)(
-        abs(ubicaciones_nuevas[i, 1] - ubicaciones_existentes[j, 1]) > 1 \/
-        abs(ubicaciones_nuevas[i, 2] - ubicaciones_existentes[j, 2]) > 1
-    )
-);
-
-constraint forall(i in 1..nuevas_ubicaciones)(
-    sum([matriz_poblacion[x, y] | x in ubicaciones_nuevas[i, 1]-1..ubicaciones_nuevas[i, 1]+1, 
-                                      y in ubicaciones_nuevas[i, 2]-1..ubicaciones_nuevas[i, 2]+1 where x in R /\ y in R]) >= 25 /\
-    sum([matriz_entorno[x, y] | x in ubicaciones_nuevas[i, 1]-1..ubicaciones_nuevas[i, 1]+1, 
-                                   y in ubicaciones_nuevas[i, 2]-1..ubicaciones_nuevas[i, 2]+1 where x in R /\ y in R]) >= 20
-);
-
-% Función objetivo: Maximizar la suma de los valores de población y entorno
-var int: ganancia_total = 
-    sum(i in 1..nuevas_ubicaciones)(
-        sum([matriz_poblacion[x, y] | x in ubicaciones_nuevas[i, 1]-1..ubicaciones_nuevas[i, 1]+1, 
-                                          y in ubicaciones_nuevas[i, 2]-1..ubicaciones_nuevas[i, 2]+1 where x in R /\ y in R]) +
-        sum([matriz_entorno[x, y] | x in ubicaciones_nuevas[i, 1]-1..ubicaciones_nuevas[i, 1]+1, 
-                                     y in ubicaciones_nuevas[i, 2]-1..ubicaciones_nuevas[i, 2]+1 where x in R /\ y in R])
-    );
-
-solve maximize ganancia_total;
-"""
-
-# Función para resolver el modelo
-def resolver_modelo():
     try:
-        if not archivo_entrada:
-            messagebox.showerror("Error", "Debe seleccionar un archivo de entrada")
-            return
+        # Comando para ejecutar MiniZinc con el solver seleccionado
+        resultado = subprocess.run([
+            "minizinc", "--solver", solver, "modelo.mzn", archivo
+        ], capture_output=True, text=True, check=True)
 
-        # Cargar modelo desde cadena
-        model = Model()
-        model.add_string(modelo_mzn)
-        solver = Solver.lookup("gecode")
-        instance = Instance(solver, model)
+        # Mostrar resultado
+        text_salida.delete(1.0, tk.END)
+        text_salida.insert(tk.END, resultado.stdout)
+    except subprocess.CalledProcessError as e:
+        messagebox.showerror("Error", f"Error al ejecutar el modelo:\n{e.stderr}")
 
-        # Leer datos del archivo de entrada
-        with open(archivo_entrada, "r") as file:
-            lines = [line.strip() for line in file if line.strip()]
+# Crear la ventana principal
+ventana = tk.Tk()
+ventana.title("Interfaz MiniZinc")
+ventana.geometry("600x500")
 
-        # Procesar datos de entrada
-        num_ubicaciones = int(lines[0])  # Número de ubicaciones existentes
-        ubicaciones_existentes = [
-            tuple(map(int, lines[i + 1].split())) for i in range(num_ubicaciones)
-        ]
-        
-        matriz_tamano = int(lines[num_ubicaciones + 1])  # Tamaño de las matrices
-        matriz_poblacion = [
-            list(map(int, lines[num_ubicaciones + 2 + i].split()))
-            for i in range(matriz_tamano)
-        ]
-        matriz_entorno = [
-            list(map(int, lines[num_ubicaciones + 2 + matriz_tamano + i].split()))
-            for i in range(matriz_tamano)
-        ]
-        nuevas_ubicaciones = int(lines[-1])  # Número de nuevas ubicaciones
+# Variable para almacenar la ruta del archivo de entrada
+archivo_entrada = tk.StringVar()
+solver_seleccionado = tk.StringVar()
 
-        # Asignar datos a la instancia
-        instance["n"] = matriz_tamano
-        instance["num_ubicaciones_existentes"] = num_ubicaciones
-        instance["ubicaciones_existentes"] = ubicaciones_existentes
-        instance["matriz_poblacion"] = matriz_poblacion
-        instance["matriz_entorno"] = matriz_entorno
-        instance["nuevas_ubicaciones"] = nuevas_ubicaciones
+# Etiqueta y botón para seleccionar archivo
+frame_entrada = tk.Frame(ventana)
+frame_entrada.pack(pady=10)
 
-        # Resolver el modelo
-        result = instance.solve()
+etiqueta_entrada = tk.Label(frame_entrada, text="Archivo de entrada:")
+etiqueta_entrada.pack(side=tk.LEFT, padx=5)
 
-        # Mostrar resultados
-        resultados_texto = (
-            f"Ganancia total: {result['ganancia_total']}\n"
-            f"Nuevas ubicaciones: {result['ubicaciones_nuevas']}"
-        )
-        resultados_label.config(text=resultados_texto)
+entrada_texto = tk.Entry(frame_entrada, textvariable=archivo_entrada, width=50, state="readonly")
+entrada_texto.pack(side=tk.LEFT, padx=5)
 
-    except Exception as e:
-        messagebox.showerror("Error", f"Error al resolver el modelo: {e}")
+boton_entrada = tk.Button(frame_entrada, text="Seleccionar", command=seleccionar_archivo)
+boton_entrada.pack(side=tk.LEFT, padx=5)
 
-# Configuración de la interfaz gráfica
-root = tk.Tk()
-root.title("Optimizador de Programas de Ingeniería")
+# Opciones de solver
+frame_solver = tk.Frame(ventana)
+frame_solver.pack(pady=10)
 
-archivo_entrada = None
+etiqueta_solver = tk.Label(frame_solver, text="Seleccione un solver:")
+etiqueta_solver.pack(side=tk.LEFT, padx=5)
 
-# Elementos de la interfaz
-titulo = tk.Label(root, text="Optimizador de Localización de Programas", font=("Arial", 16))
-titulo.pack(pady=10)
+opciones_solver = ["gecode", "chuffed", "cbc"]
+menu_solver = tk.OptionMenu(frame_solver, solver_seleccionado, *opciones_solver)
+menu_solver.pack(side=tk.LEFT, padx=5)
 
-entrada_button = tk.Button(root, text="Cargar archivo de entrada", command=cargar_archivo)
-entrada_button.pack(pady=5)
+# Botón para ejecutar el modelo
+boton_ejecutar = tk.Button(ventana, text="Ejecutar Modelo", command=ejecutar_modelo)
+boton_ejecutar.pack(pady=10)
 
-entrada_label = tk.Label(root, text="No se ha seleccionado un archivo")
-entrada_label.pack(pady=5)
-
-resolver_button = tk.Button(root, text="Resolver", command=resolver_modelo)
-resolver_button.pack(pady=5)
-
-resultados_label = tk.Label(root, text="Resultados aparecerán aquí", justify="left")
-resultados_label.pack(pady=10)
+# Área de texto para mostrar la salida
+text_salida = tk.Text(ventana, wrap=tk.WORD, height=20, width=70)
+text_salida.pack(padx=10, pady=10)
 
 # Iniciar el bucle principal
-root.mainloop()
+ventana.mainloop()
