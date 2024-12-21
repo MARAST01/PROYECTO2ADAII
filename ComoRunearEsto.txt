@@ -1,0 +1,5 @@
+1. sacar la entrada que deseas probar  y que quede en el mismo lugar
+donde está el modelo
+
+2. poner el siguiente comando 
+minizinc modelo.mzn entrada1.dzn 
