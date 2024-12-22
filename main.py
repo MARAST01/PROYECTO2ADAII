@@ -42,6 +42,7 @@ def ejecutar_modelo():
 ventana = tk.Tk()
 ventana.title("Interfaz MiniZinc")
 ventana.geometry("600x500")
+ventana.configure(bg="#4C585B")
 
 # Variable para almacenar la ruta del archivo de entrada
 archivo_entrada = tk.StringVar()
