@@ -3,6 +3,12 @@
         % PARAMETRIZACI�N
         % ------------------------------------------
 
+        %           # Proyecto ADA II
+%   #  Desarrolladores: 
+%   # Juan Jose Hernandez 2259500
+%   # Juan Jose Gallego 2259433
+%   # Marlon Astudillo 2259462
+%   # Tina Torres 2259729
         % Cantidad de posiciones definidas de antemano
         int: total_posiciones_fijas;
 
